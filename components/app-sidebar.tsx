@@ -4,14 +4,12 @@ import type * as React from "react"
 import {
   Building2,
   Home,
-  MessageSquare,
   Bell,
   Plus,
   Settings,
   User,
   ChevronUp,
   LogOut,
-  Wallet,
   BarChart3,
   Menu,
   Users,
@@ -78,33 +76,6 @@ const getMenuItems = (userRole: string) => {
     ],
   }
 
-  const communicationItems = {
-    title: "Communications",
-    items: [
-      {
-        title: "Inquiries",
-        url: "/inquiries",
-        icon: MessageSquare,
-      },
-    ],
-  }
-
-  const walletItems = {
-    title: "Wallet",
-    items: [
-      {
-        title: "My Wallet",
-        url: "/wallet",
-        icon: Wallet,
-      },
-      {
-        title: "Mpesa Deposit",
-        url: "/wallet/deposit",
-        icon: Plus,
-      },
-    ],
-  }
-
   const servicesItems = {
     title: "Services",
     items: [
@@ -141,7 +112,7 @@ const getMenuItems = (userRole: string) => {
   // Role-specific menu configurations
   switch (userRole) {
     case "agent":
-      return [...baseItems, propertyItems, walletItems, servicesItems, basicAnalytics, settingsItems]
+      return [...baseItems, propertyItems, servicesItems, basicAnalytics, settingsItems]
 
     case "landlord":
       return [
@@ -201,8 +172,6 @@ const getMenuItems = (userRole: string) => {
             },
           ],
         },
-        communicationItems,
-        walletItems,
         servicesItems,
         basicAnalytics,
         settingsItems,
@@ -268,17 +237,6 @@ const getMenuItems = (userRole: string) => {
           ],
         },
         {
-          title: "Communications",
-          items: [
-            {
-              title: "Inquiries",
-              url: "/inquiries",
-              icon: MessageSquare,
-            },
-          ],
-        },
-        walletItems,
-        {
           title: "Financial Management",
           items: [
             {
@@ -323,7 +281,7 @@ const getMenuItems = (userRole: string) => {
       ]
 
     default:
-      return [...baseItems, propertyItems, communicationItems, walletItems, servicesItems, settingsItems]
+      return [...baseItems, propertyItems, servicesItems, settingsItems]
   }
 }
 
@@ -411,9 +369,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <Building2 className="h-6 w-6 text-green-600" />
           <span className="font-semibold text-gray-900">Swyft Agent</span>
         </div>
-        {/* Mobile menu trigger - visible on small screens */}
+        {/* Mobile menu trigger - visible on small screens with highest z-index */}
         <div className="md:hidden flex justify-end p-2">
-          <SidebarTrigger className="h-8 w-8">
+          <SidebarTrigger className="h-8 w-8 z-[9999] relative">
             <Menu className="h-4 w-4" />
           </SidebarTrigger>
         </div>

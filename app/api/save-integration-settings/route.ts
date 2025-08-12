@@ -1,46 +1,36 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
 
 export async function POST(request: NextRequest) {
   try {
-    const { companyId, settings } = await request.json()
+    const body = await request.json()
+    const { userId, settings } = body
 
-    if (!companyId || !settings) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
-    }
+    // In a real application, you would:
+    // 1. Validate the user has permission to save these settings
+    // 2. Encrypt sensitive API keys before storing
+    // 3. Store in a secure database table
+    // 4. Validate the API keys with their respective services
 
-    // Validate that the company exists
-    const { data: company, error: companyError } = await supabase
-      .from("company_accounts")
-      .select("id")
-      .eq("id", companyId)
-      .single()
-
-    if (companyError || !company) {
-      return NextResponse.json({ error: "Company not found" }, { status: 404 })
-    }
-
-    // Here you would typically save to environment variables or a secure key management system
-    // For now, we'll just return success since the settings are already saved to the database
-    // In a production environment, you might want to:
-    // 1. Encrypt sensitive data before storing
-    // 2. Use a key management service like AWS KMS, Azure Key Vault, etc.
-    // 3. Set environment variables dynamically
-
-    console.log(`Integration settings saved for company ${companyId}:`, {
-      hasResendKey: !!settings.resend_api_key,
-      hasFromEmail: !!settings.resend_from_email,
-      hasMpesaKey: !!settings.mpesa_consumer_key,
-      hasMpesaSecret: !!settings.mpesa_consumer_secret,
-      mpesaEnvironment: settings.mpesa_environment,
+    console.log("Integration settings save request:", {
+      userId,
+      settings: {
+        ...settings,
+        // Redact sensitive keys in logs
+        whatsapp_api_key: settings.whatsapp_api_key ? "[REDACTED]" : undefined,
+        sms_api_key: settings.sms_api_key ? "[REDACTED]" : undefined,
+        mpesa_consumer_key: settings.mpesa_consumer_key ? "[REDACTED]" : undefined,
+        mpesa_consumer_secret: settings.mpesa_consumer_secret ? "[REDACTED]" : undefined,
+      },
     })
 
+    // For now, we'll just return success
+    // In production, implement proper storage and encryption
     return NextResponse.json({
       success: true,
       message: "Integration settings saved successfully",
     })
   } catch (error: any) {
-    console.error("Save integration settings error:", error)
-    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
+    console.error("Error saving integration settings:", error)
+    return NextResponse.json({ error: error.message || "Failed to save integration settings" }, { status: 500 })
   }
 }

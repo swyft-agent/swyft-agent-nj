@@ -3,49 +3,232 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import {
   Building2,
   Home,
   Users,
-  MessageSquare,
+  Bell,
   Plus,
   TrendingUp,
+  MessageSquare,
+  FileText,
+  Truck,
+  Calendar,
   DollarSign,
   Menu,
-  Bell,
-  Eye,
-  ArrowRight,
 } from "lucide-react"
-import { useAuth } from "@/components/auth-provider"
-import { fetchDashboardStats, type DashboardStats } from "@/lib/supabase-data"
 import Link from "next/link"
+import { useAuth } from "@/components/auth-provider"
+import { supabase } from "@/lib/supabase"
+
+interface DashboardStats {
+  totalBuildings: number
+  vacantUnits: number
+  totalTenants: number
+  totalNotices: number
+  recentInquiries: number
+  monthlyRevenue: number
+}
+
+interface RecentActivity {
+  id: string
+  type: "inquiry" | "tenant" | "notice" | "building"
+  title: string
+  description: string
+  timestamp: string
+  status?: string
+}
 
 export default function DashboardPage() {
   const { user } = useAuth()
-  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [stats, setStats] = useState<DashboardStats>({
+    totalBuildings: 0,
+    vacantUnits: 0,
+    totalTenants: 0,
+    totalNotices: 0,
+    recentInquiries: 0,
+    monthlyRevenue: 0,
+  })
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [userRole, setUserRole] = useState<string>("agent")
 
   useEffect(() => {
     if (user?.id) {
-      loadDashboardStats()
+      loadDashboardData()
     }
   }, [user?.id])
 
-  const loadDashboardStats = async () => {
+  const loadDashboardData = async () => {
     try {
-      setLoading(true)
-      setError(null)
-      const data = await fetchDashboardStats()
-      setStats(data)
-    } catch (err) {
-      console.error("Error loading dashboard stats:", err)
-      setError("Failed to load dashboard data")
+      // Get user role and company info
+      const { data: userData } = await supabase
+        .from("users")
+        .select("role, company_account_id")
+        .eq("id", user?.id)
+        .single()
+
+      if (userData) {
+        setUserRole(userData.role || "agent")
+      }
+
+      const companyId = userData?.company_account_id
+
+      if (!companyId) {
+        console.log("No company account found")
+        setLoading(false)
+        return
+      }
+
+      // Load stats based on user role
+      const [buildingsData, vacantUnitsData, tenantsData, noticesData, inquiriesData] = await Promise.all([
+        // Buildings
+        supabase
+          .from("buildings")
+          .select("building_id")
+          .eq("company_account_id", companyId),
+        // Vacant units
+        supabase
+          .from("vacant_units")
+          .select("unit_id")
+          .eq("company_account_id", companyId),
+        // Tenants
+        supabase
+          .from("tenants")
+          .select("tenant_id, rent_amount")
+          .eq("company_account_id", companyId),
+        // Notices
+        supabase
+          .from("notices")
+          .select("notice_id")
+          .eq("company_account_id", companyId),
+        // Recent inquiries
+        supabase
+          .from("inquiries")
+          .select("inquiry_id")
+          .eq("company_account_id", companyId)
+          .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+      ])
+
+      // Calculate monthly revenue from tenants
+      const monthlyRevenue = tenantsData.data?.reduce((sum, tenant) => sum + (tenant.rent_amount || 0), 0) || 0
+
+      setStats({
+        totalBuildings: buildingsData.data?.length || 0,
+        vacantUnits: vacantUnitsData.data?.length || 0,
+        totalTenants: tenantsData.data?.length || 0,
+        totalNotices: noticesData.data?.length || 0,
+        recentInquiries: inquiriesData.data?.length || 0,
+        monthlyRevenue,
+      })
+
+      // Load recent activity
+      const activities: RecentActivity[] = []
+
+      // Add recent inquiries
+      if (inquiriesData.data && inquiriesData.data.length > 0) {
+        activities.push({
+          id: "inquiries",
+          type: "inquiry",
+          title: "New Inquiries",
+          description: `${inquiriesData.data.length} new inquiries this week`,
+          timestamp: "Recent",
+          status: "new",
+        })
+      }
+
+      // Add recent tenants
+      if (tenantsData.data && tenantsData.data.length > 0) {
+        activities.push({
+          id: "tenants",
+          type: "tenant",
+          title: "Active Tenants",
+          description: `${tenantsData.data.length} tenants currently managed`,
+          timestamp: "Current",
+          status: "active",
+        })
+      }
+
+      // Add vacant units if any
+      if (vacantUnitsData.data && vacantUnitsData.data.length > 0) {
+        activities.push({
+          id: "vacant",
+          type: "building",
+          title: "Vacant Units",
+          description: `${vacantUnitsData.data.length} units available for rent`,
+          timestamp: "Available",
+          status: "vacant",
+        })
+      }
+
+      setRecentActivity(activities.slice(0, 5))
+    } catch (error) {
+      console.error("Error loading dashboard data:", error)
     } finally {
       setLoading(false)
     }
+  }
+
+  const getQuickActions = () => {
+    const baseActions = [
+      {
+        title: "Add Vacant Unit",
+        description: "List a new property unit",
+        icon: Plus,
+        href: "/new-vacant-unit",
+        color: "bg-blue-500",
+      },
+      {
+        title: "Request Move",
+        description: "Request moving services",
+        icon: Truck,
+        href: "/request-move",
+        color: "bg-green-500",
+      },
+    ]
+
+    if (userRole === "admin" || userRole === "manager") {
+      return [
+        {
+          title: "Add Building",
+          description: "Register a new property",
+          icon: Building2,
+          href: "/new-building",
+          color: "bg-purple-500",
+        },
+        {
+          title: "Add Tenant",
+          description: "Register a new tenant",
+          icon: Users,
+          href: "/tenants/add",
+          color: "bg-orange-500",
+        },
+        ...baseActions,
+      ]
+    }
+
+    if (userRole === "landlord") {
+      return [
+        {
+          title: "Add Building",
+          description: "Register a new property",
+          icon: Building2,
+          href: "/new-building",
+          color: "bg-purple-500",
+        },
+        {
+          title: "Add Tenant",
+          description: "Register a new tenant",
+          icon: Users,
+          href: "/tenants/add",
+          color: "bg-orange-500",
+        },
+        ...baseActions,
+      ]
+    }
+
+    return baseActions
   }
 
   if (!user) {
@@ -62,56 +245,23 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        {/* Mobile Header */}
-        <div className="sticky top-0 z-40 bg-white border-b border-gray-200 px-4 py-3 md:hidden">
-          <div className="flex items-center gap-3">
-            <SidebarTrigger className="h-8 w-8 text-gray-600">
-              <Menu className="h-5 w-5" />
-            </SidebarTrigger>
-            <h1 className="text-lg font-semibold text-gray-900">Dashboard</h1>
-          </div>
+      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         </div>
-
-        <div className="container mx-auto py-6 px-4">
-          <div className="space-y-6">
-            <div className="h-8 bg-gray-200 rounded animate-pulse" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-32 bg-gray-200 rounded animate-pulse" />
-              ))}
-            </div>
-            <div className="h-64 bg-gray-200 rounded animate-pulse" />
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        {/* Mobile Header */}
-        <div className="sticky top-0 z-40 bg-white border-b border-gray-200 px-4 py-3 md:hidden">
-          <div className="flex items-center gap-3">
-            <SidebarTrigger className="h-8 w-8 text-gray-600">
-              <Menu className="h-5 w-5" />
-            </SidebarTrigger>
-            <h1 className="text-lg font-semibold text-gray-900">Dashboard</h1>
-          </div>
-        </div>
-
-        <div className="container mx-auto py-6 px-4">
-          <Card className="bg-red-50 border-red-200">
-            <CardContent className="pt-6">
-              <p className="text-red-600 text-center">{error}</p>
-              <div className="flex justify-center mt-4">
-                <Button onClick={loadDashboardStats} variant="outline">
-                  Try Again
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="h-4 bg-gray-200 rounded w-20"></div>
+                <div className="h-4 w-4 bg-gray-200 rounded"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 bg-gray-200 rounded w-16 mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-24"></div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
     )
@@ -139,208 +289,154 @@ export default function DashboardPage() {
           <p className="text-gray-600 mt-2">Welcome back, {user.email}</p>
         </div>
 
-        {/* Key Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Card className="bg-white shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Buildings</CardTitle>
-              <Building2 className="h-4 w-4 text-gray-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{stats?.totalBuildings || 0}</div>
-              <p className="text-xs text-gray-500 mt-1">Properties managed</p>
-            </CardContent>
-          </Card>
+        {/* Stats Cards - Mobile: 2x2 Grid, Desktop: 4 columns */}
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Link href="/buildings">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Buildings</CardTitle>
+                <Building2 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.totalBuildings}</div>
+                <p className="text-xs text-muted-foreground">Properties managed</p>
+              </CardContent>
+            </Card>
+          </Link>
 
-          <Card className="bg-white shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Vacant Units</CardTitle>
-              <Home className="h-4 w-4 text-gray-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{stats?.vacantUnits || 0}</div>
-              <p className="text-xs text-gray-500 mt-1">Available for rent/sale</p>
-            </CardContent>
-          </Card>
+          <Link href="/vacant-units">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Vacant Units</CardTitle>
+                <Home className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.vacantUnits}</div>
+                <p className="text-xs text-muted-foreground">Available for rent</p>
+              </CardContent>
+            </Card>
+          </Link>
 
-          <Card className="bg-white shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Tenants</CardTitle>
-              <Users className="h-4 w-4 text-gray-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{stats?.totalTenants || 0}</div>
-              <p className="text-xs text-gray-500 mt-1">Active tenants</p>
-            </CardContent>
-          </Card>
+          <Link href="/tenants">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Tenants</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.totalTenants}</div>
+                <p className="text-xs text-muted-foreground">Active leases</p>
+              </CardContent>
+            </Card>
+          </Link>
 
-          <Card className="bg-white shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Pending Inquiries</CardTitle>
-              <MessageSquare className="h-4 w-4 text-gray-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{stats?.pendingInquiries || 0}</div>
-              <p className="text-xs text-gray-500 mt-1">Awaiting response</p>
-            </CardContent>
-          </Card>
+          <Link href="/notices">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Notices</CardTitle>
+                <Bell className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.totalNotices}</div>
+                <p className="text-xs text-muted-foreground">Active notices</p>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <Card className="bg-white shadow-sm">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+          {/* Quick Actions */}
+          <Card className="col-span-full lg:col-span-4">
             <CardHeader>
-              <CardTitle className="text-lg font-semibold text-gray-900">Quick Actions</CardTitle>
-              <CardDescription className="text-gray-600">Common tasks to get you started</CardDescription>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>Common tasks and shortcuts</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <Button asChild className="w-full justify-start bg-green-600 hover:bg-green-700">
-                <Link href="/new-vacant-unit">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Vacant Unit
-                </Link>
-              </Button>
-              <Button asChild variant="outline" className="w-full justify-start bg-transparent">
-                <Link href="/new-building">
-                  <Building2 className="h-4 w-4 mr-2" />
-                  Add Building
-                </Link>
-              </Button>
-              <Button asChild variant="outline" className="w-full justify-start bg-transparent">
-                <Link href="/ads/create">
-                  <Eye className="h-4 w-4 mr-2" />
-                  Create Ad
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold text-gray-900">Recent Activity</CardTitle>
-              <CardDescription className="text-gray-600">Latest updates and notifications</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {stats?.recentTransactions && stats.recentTransactions.length > 0 ? (
-                <div className="space-y-3">
-                  {stats.recentTransactions.slice(0, 3).map((transaction, index) => (
-                    <div
-                      key={transaction.id || index}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            {transaction.description || "Transaction"}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {new Date(transaction.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                      <Badge variant="outline" className="text-xs">
-                        {transaction.transaction_type || "N/A"}
-                      </Badge>
+            <CardContent className="grid gap-4 md:grid-cols-2">
+              {getQuickActions().map((action) => (
+                <Link key={action.title} href={action.href}>
+                  <div className="flex items-center space-x-4 rounded-md border p-4 hover:bg-accent cursor-pointer transition-colors">
+                    <div className={`p-2 rounded-md ${action.color}`}>
+                      <action.icon className="h-4 w-4 text-white" />
                     </div>
-                  ))}
-                  <Button asChild variant="ghost" size="sm" className="w-full">
-                    <Link href="/wallet">
-                      View All <ArrowRight className="h-3 w-3 ml-1" />
-                    </Link>
-                  </Button>
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <Bell className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">No recent activity</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold text-gray-900">Performance Overview</CardTitle>
-              <CardDescription className="text-gray-600">Key metrics at a glance</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Occupancy Rate</span>
-                <div className="flex items-center">
-                  <span className="text-sm font-medium text-gray-900">
-                    {stats?.occupancyRate ? `${stats.occupancyRate.toFixed(1)}%` : "0%"}
-                  </span>
-                  <TrendingUp className="h-3 w-3 text-green-500 ml-1" />
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Monthly Revenue</span>
-                <div className="flex items-center">
-                  <span className="text-sm font-medium text-gray-900">
-                    KSh {stats?.monthlyRevenue?.toLocaleString() || "0"}
-                  </span>
-                  <TrendingUp className="h-3 w-3 text-green-500 ml-1" />
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Response Rate</span>
-                <div className="flex items-center">
-                  <span className="text-sm font-medium text-gray-900">95%</span>
-                  <TrendingUp className="h-3 w-3 text-green-500 ml-1" />
-                </div>
-              </div>
-              <Button asChild variant="ghost" size="sm" className="w-full">
-                <Link href="/analytics">
-                  View Analytics <ArrowRight className="h-3 w-3 ml-1" />
+                    <div className="flex-1 space-y-1">
+                      <p className="text-sm font-medium leading-none">{action.title}</p>
+                      <p className="text-sm text-muted-foreground">{action.description}</p>
+                    </div>
+                  </div>
                 </Link>
-              </Button>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Recent Activity */}
+          <Card className="col-span-full lg:col-span-3">
+            <CardHeader>
+              <CardTitle>Recent Activity</CardTitle>
+              <CardDescription>Latest updates and changes</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {recentActivity.length > 0 ? (
+                  recentActivity.map((activity) => (
+                    <div key={activity.id} className="flex items-center space-x-4">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                        {activity.type === "inquiry" && <MessageSquare className="h-4 w-4" />}
+                        {activity.type === "tenant" && <Users className="h-4 w-4" />}
+                        {activity.type === "notice" && <Bell className="h-4 w-4" />}
+                        {activity.type === "building" && <Building2 className="h-4 w-4" />}
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <p className="text-sm font-medium leading-none">{activity.title}</p>
+                        <p className="text-sm text-muted-foreground">{activity.description}</p>
+                      </div>
+                      <div className="text-xs text-muted-foreground">{activity.timestamp}</div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-6">
+                    <Calendar className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">No recent activity</p>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Navigation Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-white shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-            <Link href="/vacant-units">
-              <CardContent className="p-6 text-center">
-                <Home className="h-8 w-8 text-green-600 mx-auto mb-3" />
-                <h3 className="font-semibold text-gray-900 mb-1">Vacant Units</h3>
-                <p className="text-sm text-gray-600">Manage available properties</p>
-              </CardContent>
-            </Link>
+        {/* Revenue Overview */}
+        {(userRole === "admin" || userRole === "manager" || userRole === "landlord") && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5" />
+                Revenue Overview
+              </CardTitle>
+              <CardDescription>Monthly revenue from all properties</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold">KES {stats.monthlyRevenue.toLocaleString()}</div>
+                  <p className="text-sm text-muted-foreground">Monthly rental income</p>
+                </div>
+                <div className="flex gap-2">
+                  <Link href="/analytics/revenue">
+                    <Button variant="outline" size="sm">
+                      <TrendingUp className="mr-2 h-4 w-4" />
+                      View Analytics
+                    </Button>
+                  </Link>
+                  <Link href="/finances">
+                    <Button variant="outline" size="sm">
+                      <FileText className="mr-2 h-4 w-4" />
+                      Financial Reports
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </CardContent>
           </Card>
-
-          <Card className="bg-white shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-            <Link href="/inquiries">
-              <CardContent className="p-6 text-center">
-                <MessageSquare className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-                <h3 className="font-semibold text-gray-900 mb-1">Inquiries</h3>
-                <p className="text-sm text-gray-600">Respond to customer questions</p>
-              </CardContent>
-            </Link>
-          </Card>
-
-          <Card className="bg-white shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-            <Link href="/ads">
-              <CardContent className="p-6 text-center">
-                <Eye className="h-8 w-8 text-purple-600 mx-auto mb-3" />
-                <h3 className="font-semibold text-gray-900 mb-1">Ads Center</h3>
-                <p className="text-sm text-gray-600">Manage your advertisements</p>
-              </CardContent>
-            </Link>
-          </Card>
-
-          <Card className="bg-white shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-            <Link href="/wallet">
-              <CardContent className="p-6 text-center">
-                <DollarSign className="h-8 w-8 text-green-600 mx-auto mb-3" />
-                <h3 className="font-semibold text-gray-900 mb-1">Wallet</h3>
-                <p className="text-sm text-gray-600">Manage your finances</p>
-              </CardContent>
-            </Link>
-          </Card>
-        </div>
+        )}
       </div>
     </div>
   )
