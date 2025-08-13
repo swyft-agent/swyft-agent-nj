@@ -157,34 +157,52 @@ export async function retryFetch(operation: () => Promise<any>, retries = MAX_RE
   }
 }
 
-// Environment variables - check both client and server side
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+let _supabaseClient: ReturnType<typeof createClient> | null = null
 
-// Debug environment variables
-console.log("Environment check:", {
-  hasUrl: !!supabaseUrl,
-  hasKey: !!supabaseAnonKey,
-  urlLength: supabaseUrl?.length || 0,
-  keyLength: supabaseAnonKey?.length || 0,
-})
+function getSupabaseClient() {
+  if (_supabaseClient) return _supabaseClient
 
-if (!supabaseUrl) {
-  console.error("Missing NEXT_PUBLIC_SUPABASE_URL environment variable")
-  throw new Error("Missing Supabase URL. Please check your environment variables.")
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (process.env.NODE_ENV === "development") {
+    console.log("Environment check:", {
+      hasUrl: !!supabaseUrl,
+      hasKey: !!supabaseAnonKey,
+      urlLength: supabaseUrl?.length || 0,
+      keyLength: supabaseAnonKey?.length || 0,
+    })
+  }
+
+  if (!supabaseUrl) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("Missing NEXT_PUBLIC_SUPABASE_URL environment variable")
+    }
+    throw new Error("Missing Supabase URL. Please check your environment variables.")
+  }
+
+  if (!supabaseAnonKey) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable")
+    }
+    throw new Error("Missing Supabase Anon Key. Please check your environment variables.")
+  }
+
+  _supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+    },
+  })
+
+  return _supabaseClient
 }
 
-if (!supabaseAnonKey) {
-  console.error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable")
-  throw new Error("Missing Supabase Anon Key. Please check your environment variables.")
-}
-
-// Create the Supabase client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
+export const supabase = new Proxy({} as ReturnType<typeof createClient>, {
+  get(target, prop) {
+    const client = getSupabaseClient()
+    return client[prop as keyof typeof client]
   },
 })
 
@@ -214,7 +232,8 @@ export const isUsingMockData = false
 export async function testSupabaseConnection() {
   try {
     console.log("Testing Supabase connection...")
-    const { data, error } = await supabase.from("users").select("count").limit(1)
+    const client = getSupabaseClient()
+    const { data, error } = await client.from("users").select("count").limit(1)
     if (error) throw error
     console.log("Supabase connection test successful")
     return { connected: true, error: null }
