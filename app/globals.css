@@ -78,16 +78,15 @@ a[href*="built with v0"],
 *[class*="watermark"],
 *[id*="watermark"],
 div:has(> a[href*="v0.dev"]),
-\
-div:has(> span:contains("Built with\")),\
-div:has(> span:contains("v0")) {\
-  display: none !important;\
-  visibility: hidden !important;\
-  opacity: 0 !important;\
-  pointer-events: none !important;\
-}  
+div:has(> span:contains("Built with")),
+div:has(> span:contains("v0")) {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
 
-/* Hide any fixed positioned elements in bottom right that might be watermarks */ \
+/* Hide any fixed positioned elements in bottom right that might be watermarks */
 div[style*="position: fixed"][style*="bottom"][style*="right"] {
   display: none !important;
 }
@@ -121,12 +120,6 @@ div[style*="position: fixed"][style*="bottom"][style*="right"] {
 
   .mobile-tap-highlight {
     -webkit-tap-highlight-color: transparent;
-  }
-
-  /* Ensure sidebar trigger has highest z-index on mobile */
-  [data-sidebar="trigger"] {
-    z-index: 9999 !important;
-    position: relative !important;
   }
 }
 
@@ -178,89 +171,4 @@ div[style*="position: fixed"][style*="bottom"][style*="right"] {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-}
-
-/* Enhanced mobile responsiveness */
-@media (max-width: 640px) {
-  /* Ensure proper spacing on mobile */
-  .container {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
-
-  /* Make cards more touch-friendly */
-  .card {
-    min-height: 44px;
-  }
-
-  /* Improve button sizing on mobile */
-  button {
-    min-height: 44px;
-    min-width: 44px;
-  }
-
-  /* Better form inputs on mobile */
-  input,
-  select,
-  textarea {
-    min-height: 44px;
-    font-size: 16px; /* Prevents zoom on iOS */
-  }
-
-  /* Responsive tables */
-  .table-responsive {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Better modal sizing on mobile */
-  .modal-content {
-    margin: 1rem;
-    max-height: calc(100vh - 2rem);
-    overflow-y: auto;
-  }
-}
-
-/* Sidebar mobile enhancements */
-@media (max-width: 768px) {
-  /* Ensure sidebar overlay has proper z-index */
-  [data-sidebar="sidebar"] {
-    z-index: 9998 !important;
-  }
-
-  /* Sidebar backdrop */
-  .sidebar-backdrop {
-    z-index: 9997 !important;
-  }
-
-  /* Mobile sidebar trigger positioning */
-  [data-sidebar="trigger"] {
-    position: fixed !important;
-    top: 1rem !important;
-    right: 1rem !important;
-    z-index: 9999 !important;
-    background: white !important;
-    border: 1px solid hsl(var(--border)) !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
-  }
-}
-
-/* Chart responsiveness */
-.recharts-responsive-container {
-  min-height: 200px;
-}
-
-@media (max-width: 640px) {
-  .recharts-responsive-container {
-    min-height: 250px;
-  }
-
-  /* Smaller chart text on mobile */
-  .recharts-text {
-    font-size: 10px !important;
-  }
-
-  .recharts-legend-wrapper {
-    font-size: 10px !important;
-  }
 }

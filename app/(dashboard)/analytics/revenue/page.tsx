@@ -484,7 +484,7 @@ export default function RevenueAnalyticsPage() {
 
   if (loading && buildings.length === 0) {
     return (
-      <div className="container mx-auto py-4 px-4 sm:py-8">
+      <div className="container mx-auto py-8 px-4">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <Loader2 className="h-8 w-8 animate-spin mx-auto" />
@@ -496,56 +496,52 @@ export default function RevenueAnalyticsPage() {
   }
 
   return (
-    <div className="container mx-auto py-4 px-4 sm:py-8 max-w-7xl">
-      <div className="mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2 mb-2">
-          <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8" />
+    <div className="container mx-auto py-8 px-4">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <TrendingUp className="h-8 w-8" />
           Revenue Analytics
         </h1>
-        <p className="text-muted-foreground text-sm sm:text-base">
-          Track your property revenue, expenses, and profitability
-        </p>
+        <p className="text-muted-foreground mt-2">Track your property revenue, expenses, and profitability</p>
       </div>
 
       {reportMessage && (
-        <Alert className={`mb-4 sm:mb-6 ${reportMessage.type === "error" ? "border-red-500" : "border-green-500"}`}>
+        <Alert className={`mb-6 ${reportMessage.type === "error" ? "border-red-500" : "border-green-500"}`}>
           {reportMessage.type === "error" ? <AlertCircle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
-          <AlertDescription className="text-sm">{reportMessage.text}</AlertDescription>
+          <AlertDescription>{reportMessage.text}</AlertDescription>
         </Alert>
       )}
 
       {/* Filters */}
-      <Card className="mb-4 sm:mb-6">
-        <CardHeader className="pb-4">
-          <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-            <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
             Report Filters
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Building</Label>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Building</Label>
               <Select value={selectedBuilding} onValueChange={setSelectedBuilding}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger>
                   <SelectValue placeholder="Select building" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Buildings</SelectItem>
                   {buildings.map((building) => (
                     <SelectItem key={building.building_id} value={building.building_id}>
-                      <span className="truncate">
-                        {building.name} ({building.total_units} units)
-                      </span>
+                      {building.name} ({building.total_units} units)
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Year</Label>
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Year</Label>
               <Select value={selectedYear} onValueChange={setSelectedYear}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger>
                   <SelectValue placeholder="Select year" />
                 </SelectTrigger>
                 <SelectContent>
@@ -560,80 +556,62 @@ export default function RevenueAnalyticsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Email for Reports (Optional)</Label>
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Email for Reports (Optional)</Label>
               <Input
                 type="email"
                 placeholder="Enter email address"
                 value={customEmail}
                 onChange={(e) => setCustomEmail(e.target.value)}
-                className="w-full"
               />
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Export Options</Label>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  onClick={exportToCSV}
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 sm:flex-none bg-transparent"
-                >
-                  <Download className="mr-1 h-3 w-3" />
-                  CSV
-                </Button>
-                <Button
-                  onClick={exportToPDF}
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 sm:flex-none bg-transparent"
-                >
-                  <FileText className="mr-1 h-3 w-3" />
-                  PDF
-                </Button>
-                <Button onClick={sendReportByEmail} disabled={sendingReport} size="sm" className="flex-1 sm:flex-none">
-                  {sendingReport ? (
-                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                  ) : (
-                    <Mail className="mr-1 h-3 w-3" />
-                  )}
-                  Email
-                </Button>
-              </div>
+            <div className="flex gap-2">
+              <Button onClick={exportToCSV} variant="outline" size="sm">
+                <Download className="mr-2 h-4 w-4" />
+                CSV
+              </Button>
+              <Button onClick={exportToPDF} variant="outline" size="sm">
+                <FileText className="mr-2 h-4 w-4" />
+                PDF
+              </Button>
+              <Button onClick={sendReportByEmail} disabled={sendingReport} size="sm">
+                {sendingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+                Email
+              </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-4 sm:mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs sm:text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg sm:text-2xl font-bold">KES {metrics.totalRevenue.toLocaleString()}</div>
-            <div className="flex items-center text-xs text-muted-foreground mt-1">
+            <div className="text-2xl font-bold">KES {metrics.totalRevenue.toLocaleString()}</div>
+            <div className="flex items-center text-xs text-muted-foreground">
               {metrics.revenueGrowth >= 0 ? (
-                <TrendingUp className="mr-1 h-2 w-2 sm:h-3 sm:w-3 text-green-500" />
+                <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
               ) : (
-                <TrendingDown className="mr-1 h-2 w-2 sm:h-3 sm:w-3 text-red-500" />
+                <TrendingDown className="mr-1 h-3 w-3 text-red-500" />
               )}
-              <span className="truncate">{Math.abs(metrics.revenueGrowth)}% from previous</span>
+              {Math.abs(metrics.revenueGrowth)}% from previous period
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs sm:text-sm font-medium">Net Profit</CardTitle>
-            <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg sm:text-2xl font-bold">KES {metrics.netProfit.toLocaleString()}</div>
-            <div className="flex items-center text-xs text-muted-foreground mt-1">
-              <Badge variant={metrics.profitMargin >= 30 ? "default" : "secondary"} className="text-xs">
+            <div className="text-2xl font-bold">KES {metrics.netProfit.toLocaleString()}</div>
+            <div className="flex items-center text-xs text-muted-foreground">
+              <Badge variant={metrics.profitMargin >= 30 ? "default" : "secondary"}>
                 {metrics.profitMargin}% margin
               </Badge>
             </div>
@@ -642,22 +620,22 @@ export default function RevenueAnalyticsPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs sm:text-sm font-medium">Properties</CardTitle>
-            <Building className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Properties</CardTitle>
+            <Building className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg sm:text-2xl font-bold">{metrics.totalBuildings}</div>
+            <div className="text-2xl font-bold">{metrics.totalBuildings}</div>
             <div className="text-xs text-muted-foreground">{metrics.totalUnits} total units</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs sm:text-sm font-medium">Occupancy</CardTitle>
-            <Users className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Occupancy</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg sm:text-2xl font-bold">{metrics.averageOccupancy}%</div>
+            <div className="text-2xl font-bold">{metrics.averageOccupancy}%</div>
             <div className="text-xs text-muted-foreground">
               {metrics.occupiedUnits} occupied, {metrics.vacantUnits} vacant
             </div>
@@ -666,37 +644,28 @@ export default function RevenueAnalyticsPage() {
       </div>
 
       {/* Charts */}
-      <Tabs defaultValue="monthly" className="space-y-4 sm:space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="monthly" className="text-xs sm:text-sm">
-            Monthly
-          </TabsTrigger>
-          <TabsTrigger value="yearly" className="text-xs sm:text-sm">
-            Yearly
-          </TabsTrigger>
-          <TabsTrigger value="buildings" className="text-xs sm:text-sm">
-            Buildings
-          </TabsTrigger>
+      <Tabs defaultValue="monthly" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="monthly">Monthly Trend</TabsTrigger>
+          <TabsTrigger value="yearly">Yearly Overview</TabsTrigger>
+          <TabsTrigger value="buildings">Building Breakdown</TabsTrigger>
         </TabsList>
 
         <TabsContent value="monthly">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg sm:text-xl">Monthly Revenue Trend - {selectedYear}</CardTitle>
-              <CardDescription className="text-sm">Revenue, expenses, and profit by month</CardDescription>
+              <CardTitle>Monthly Revenue Trend - {selectedYear}</CardTitle>
+              <CardDescription>Revenue, expenses, and profit by month</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-[300px] sm:h-[400px] w-full">
+              <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={revenueData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                  <LineChart data={revenueData}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" fontSize={12} tick={{ fontSize: 10 }} interval="preserveStartEnd" />
-                    <YAxis fontSize={12} tick={{ fontSize: 10 }} />
-                    <Tooltip
-                      formatter={(value: number) => [`KES ${value.toLocaleString()}`, ""]}
-                      contentStyle={{ fontSize: "12px" }}
-                    />
-                    <Legend wrapperStyle={{ fontSize: "12px" }} />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip formatter={(value: number) => [`KES ${value.toLocaleString()}`, ""]} />
+                    <Legend />
                     <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} name="Revenue" />
                     <Line type="monotone" dataKey="expenses" stroke="#ef4444" strokeWidth={2} name="Expenses" />
                     <Line type="monotone" dataKey="profit" stroke="#3b82f6" strokeWidth={2} name="Profit" />
@@ -710,21 +679,18 @@ export default function RevenueAnalyticsPage() {
         <TabsContent value="yearly">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg sm:text-xl">Yearly Revenue Overview</CardTitle>
-              <CardDescription className="text-sm">5-year revenue and profit trends</CardDescription>
+              <CardTitle>Yearly Revenue Overview</CardTitle>
+              <CardDescription>5-year revenue and profit trends</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-[300px] sm:h-[400px] w-full">
+              <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={yearlyData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                  <BarChart data={yearlyData}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="year" fontSize={12} />
-                    <YAxis fontSize={12} tick={{ fontSize: 10 }} />
-                    <Tooltip
-                      formatter={(value: number) => [`KES ${value.toLocaleString()}`, ""]}
-                      contentStyle={{ fontSize: "12px" }}
-                    />
-                    <Legend wrapperStyle={{ fontSize: "12px" }} />
+                    <XAxis dataKey="year" />
+                    <YAxis />
+                    <Tooltip formatter={(value: number) => [`KES ${value.toLocaleString()}`, ""]} />
+                    <Legend />
                     <Bar dataKey="revenue" fill="#10b981" name="Revenue" />
                     <Bar dataKey="expenses" fill="#ef4444" name="Expenses" />
                     <Bar dataKey="profit" fill="#3b82f6" name="Profit" />
@@ -738,35 +704,28 @@ export default function RevenueAnalyticsPage() {
         <TabsContent value="buildings">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg sm:text-xl">Building Performance Breakdown</CardTitle>
-              <CardDescription className="text-sm">Revenue and occupancy by property</CardDescription>
+              <CardTitle>Building Performance Breakdown</CardTitle>
+              <CardDescription>Revenue and occupancy by property</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3 sm:space-y-4">
+              <div className="space-y-4">
                 {buildings.map((building) => (
-                  <div
-                    key={building.building_id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg space-y-2 sm:space-y-0"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-sm sm:text-base truncate">{building.name}</h4>
-                      <p className="text-xs sm:text-sm text-muted-foreground">
+                  <div key={building.building_id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex-1">
+                      <h4 className="font-medium">{building.name}</h4>
+                      <p className="text-sm text-muted-foreground">
                         {building.occupied_units} / {building.total_units} units occupied
                       </p>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <Badge variant={building.occupancy_rate >= 80 ? "default" : "secondary"} className="text-xs">
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant={building.occupancy_rate >= 80 ? "default" : "secondary"}>
                           {building.occupancy_rate.toFixed(1)}% occupied
                         </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          {building.vacant_units} vacant
-                        </Badge>
+                        <Badge variant="outline">{building.vacant_units} vacant</Badge>
                       </div>
                     </div>
-                    <div className="text-left sm:text-right">
-                      <div className="font-medium text-base sm:text-lg">
-                        KES {building.monthly_revenue.toLocaleString()}
-                      </div>
-                      <p className="text-xs sm:text-sm text-muted-foreground">per month</p>
+                    <div className="text-right">
+                      <div className="font-medium text-lg">KES {building.monthly_revenue.toLocaleString()}</div>
+                      <p className="text-sm text-muted-foreground">per month</p>
                       <p className="text-xs text-muted-foreground">
                         KES {(building.monthly_revenue * 12).toLocaleString()} annually
                       </p>

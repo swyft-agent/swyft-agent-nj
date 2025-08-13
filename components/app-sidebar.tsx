@@ -369,9 +369,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <Building2 className="h-6 w-6 text-green-600" />
           <span className="font-semibold text-gray-900">Swyft Agent</span>
         </div>
-        {/* Mobile menu trigger - visible on small screens with highest z-index */}
+        {/* Mobile menu trigger - visible on small screens */}
         <div className="md:hidden flex justify-end p-2">
-          <SidebarTrigger className="h-8 w-8 z-[9999] relative">
+          <SidebarTrigger className="h-8 w-8">
             <Menu className="h-4 w-4" />
           </SidebarTrigger>
         </div>
