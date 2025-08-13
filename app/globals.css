@@ -77,17 +77,14 @@ a[href*="v0.dev"],
 a[href*="built with v0"],
 *[class*="watermark"],
 *[id*="watermark"],
-div:has(> a[href*="v0.dev"]),
-\
-div:has(> span:contains("Built with\")),\
-div:has(> span:contains("v0")) {\
-  display: none !important;\
-  visibility: hidden !important;\
-  opacity: 0 !important;\
-  pointer-events: none !important;\
-}  
+div:has(> a[href*="v0.dev"]) {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
 
-/* Hide any fixed positioned elements in bottom right that might be watermarks */ \
+/* Hide any fixed positioned elements in bottom right that might be watermarks */
 div[style*="position: fixed"][style*="bottom"][style*="right"] {
   display: none !important;
 }
