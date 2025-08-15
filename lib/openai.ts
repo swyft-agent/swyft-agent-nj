@@ -1,7 +1,25 @@
 import OpenAI from "openai"
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+let _openai: OpenAI | null = null
+
+function getOpenAIClient(): OpenAI {
+  if (!_openai) {
+    const apiKey = process.env.OPENAI_API_KEY
+    if (!apiKey) {
+      throw new Error("OPENAI_API_KEY environment variable is required")
+    }
+    _openai = new OpenAI({ apiKey })
+  }
+  return _openai
+}
+
+// Create a proxy to maintain the same API while deferring client creation
+const openai = new Proxy({} as OpenAI, {
+  get(target, prop) {
+    const client = getOpenAIClient()
+    const value = client[prop as keyof OpenAI]
+    return typeof value === "function" ? value.bind(client) : value
+  },
 })
 
 export interface DataAnalysis {
