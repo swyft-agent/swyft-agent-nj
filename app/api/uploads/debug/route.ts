@@ -1,12 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-
-const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-})
+import { supabase } from "@/lib/supabase"
 
 export async function GET() {
   try {
@@ -32,7 +25,7 @@ export async function GET() {
 
     // Test storage bucket
     try {
-      const { data: buckets, error: bucketsError } = await supabaseAdmin.storage.listBuckets()
+      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets()
 
       if (bucketsError) {
         diagnostics.storage.error = bucketsError.message
@@ -45,7 +38,7 @@ export async function GET() {
       // Test file upload
       if (diagnostics.storage.bucketExists) {
         const testFile = new File(["test"], "test.txt", { type: "text/plain" })
-        const { error: uploadError } = await supabaseAdmin.storage
+        const { error: uploadError } = await supabase.storage
           .from("documents")
           .upload(`test/${Date.now()}.txt`, testFile)
 
@@ -54,7 +47,7 @@ export async function GET() {
         } else {
           diagnostics.storage.canUpload = true
           // Clean up test file
-          await supabaseAdmin.storage.from("documents").remove([`test/${Date.now()}.txt`])
+          await supabase.storage.from("documents").remove([`test/${Date.now()}.txt`])
         }
       }
     } catch (error) {
@@ -63,7 +56,7 @@ export async function GET() {
 
     // Test database
     try {
-      const { data, error: tableError } = await supabaseAdmin.from("uploads").select("id").limit(1)
+      const { data, error: tableError } = await supabase.from("uploads").select("id").limit(1)
 
       if (tableError) {
         diagnostics.database.error = tableError.message
