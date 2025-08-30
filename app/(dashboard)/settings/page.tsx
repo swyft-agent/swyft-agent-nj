@@ -80,6 +80,7 @@ interface IntegrationSettings {
     shortcode: string
     passkey: string
     enabled: boolean
+    is_registered: boolean
   }
 }
 
@@ -117,6 +118,7 @@ export default function SettingsPage() {
       shortcode: "",
       passkey: "",
       enabled: false,
+      is_registered: false
     },
   })
 
@@ -175,29 +177,31 @@ export default function SettingsPage() {
         })
       }
 
-      // Load integration settings
-      const { data: integrationsData } = await supabase
-        .from("integration_settings")
-        .select("*")
-        .eq("user_id", user?.id)
-        .single()
+      const integrationsResponse = await fetch(`https://swyft-agent-ser.onrender.com/api/get-integration-settings?user_id=${user?.id}`);
 
-      if (integrationsData) {
-        setIntegrations({
-          resend: integrationsData.resend || {
-            api_key: "",
-            from_email: "",
-            enabled: false,
-          },
-          mpesa: integrationsData.mpesa || {
-            consumer_key: "",
-            consumer_secret: "",
-            shortcode: "",
-            passkey: "",
-            enabled: false,
-          },
-        })
-      }
+        if (integrationsResponse.ok) {
+            const integrationsData = await integrationsResponse.json();
+            
+            // **CRITICAL FIX:** Safely merge the API data with your default state.
+            setIntegrations(prevIntegrations => ({
+                resend: {
+                    ...prevIntegrations.resend,
+                    ...(integrationsData.resend || {})
+                },
+                mpesa: {
+                    ...prevIntegrations.mpesa,
+                    ...(integrationsData.mpesa || {})
+                }
+            }));
+
+        } else {
+            console.error("Failed to fetch initial integration settings from API.");
+            // Optional: Revert to default state if fetch fails
+            setIntegrations({
+                resend: { api_key: "", from_email: "", enabled: false },
+                mpesa: { consumer_key: "", consumer_secret: "", shortcode: "", passkey: "", enabled: false, is_registered: false }
+            });
+        }
     } catch (error: any) {
       console.error("Error loading user data:", error)
       setMessage({ type: "error", text: error.message || "Failed to load user data" })
@@ -298,7 +302,7 @@ export default function SettingsPage() {
       setSaving(true)
       setMessage(null)
 
-      const response = await fetch("/api/save-integration-settings", {
+      const response = await fetch("https://swyft-agent-ser.onrender.com/api/save-integration-settings", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -314,7 +318,17 @@ export default function SettingsPage() {
         throw new Error(error.message || "Failed to save integration settings")
       }
 
-      setMessage({ type: "success", text: "Integration settings saved successfully" })
+      const result = await response.json();
+      if(result.mpesa){
+        setIntegrations({
+          ...integrations,
+         mpesa:result.mpesa,
+        });
+        setMessage({ type: "success", text: "Integration settings saved successfully" });
+      }else{
+        setMessage({type:"success", text:result.message || "Settings saved"});
+      }
+      
     } catch (error: any) {
       console.error("Error saving integrations:", error)
       setMessage({ type: "error", text: error.message || "Failed to save integration settings" })
@@ -814,13 +828,15 @@ export default function SettingsPage() {
                       </div>
                       <Switch
                         id="mpesa-enabled"
-                        checked={integrations.mpesa.enabled}
-                        onCheckedChange={(checked) =>
-                          setIntegrations({
-                            ...integrations,
-                            mpesa: { ...integrations.mpesa, enabled: checked },
-                          })
-                        }
+                        checked={integrations.mpesa.enabled && integrations.mpesa.is_registered}
+                        onCheckedChange={(checked) =>{
+                          if(!saving){
+                            setIntegrations({
+                              ...integrations,
+                              mpesa: { ...integrations.mpesa, enabled: checked },
+                            })
+                          }
+                        }}
                       />
                     </div>
                     {integrations.mpesa.enabled && (
