@@ -106,6 +106,7 @@ export default function SettingsPage() {
       auto_send: false,
     },
   })
+  //Comment for push
   const [integrations, setIntegrations] = useState<IntegrationSettings>({
     resend: {
       api_key: "",
