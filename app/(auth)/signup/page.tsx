@@ -109,77 +109,103 @@ export default function SignUpPage() {
   }
 
   const handleSubmit = async () => {
-    if (!validateStep(4)) {
-      toast.error("Please agree to the terms and conditions")
-      return
-    }
+  if (!validateStep(4)) {
+    toast.error("Please agree to the terms and conditions");
+    return;
+  }
 
-    setLoading(true)
-    try {
-      // Sign up the user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.userType === "company" ? formData.contactName : formData.name,
-          },
+  setLoading(true);
+  try {
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: formData.email,
+      password: formData.password,
+      options: {
+        data: {
+          full_name: formData.userType === "company" ? formData.contactName : formData.name,
         },
-      })
+      },
+    });
 
-      if (authError) throw authError
+    if (authError) throw authError;
 
-      if (authData.user) {
-        let companyAccountId = null
+    if (authData.user) {
+      let companyAccountId = null;
+      let companyName = "";
+      let contactName = "";
+      let companyEmail = "";
+      let companyPhone = "";
+      let companyAddress = "";
+      let companyDescription = "";
+      let companySize = "1-10";
 
-        // If it's a company, create company account first
+      // Only create a company account if the user is a company or a landlord
+      if (formData.userType === "company" || formData.userType === "landlord") {
         if (formData.userType === "company") {
-          const { data: companyData, error: companyError } = await supabase
-            .from("company_accounts")
-            .insert({
-              company_name: formData.companyName,
-              contact_name: formData.contactName,
-              email: formData.companyEmail,
-              phone: formData.companyPhone,
-              company_size: formData.companySize,
-              address: formData.companyAddress,
-              description: formData.companyDescription,
-              subscription_plan: "basic",
-              is_active: true,
-              owner_id: authData.user.id,
-            })
-            .select()
-            .single()
-
-          if (companyError) throw companyError
-          companyAccountId = companyData.id
+          companyName = formData.companyName;
+          contactName = formData.contactName;
+          companyEmail = formData.companyEmail;
+          companyPhone = formData.companyPhone;
+          companyAddress = formData.companyAddress;
+          companyDescription = formData.companyDescription;
+          companySize = formData.companySize;
+        } else {
+          // For landlords, create a default company name
+          companyName = `${formData.name}'s Properties`;
+          contactName = formData.name;
+          companyEmail = formData.email;
+          companyPhone = formData.phone;
+          companyAddress = formData.address;
+          companyDescription = formData.description;
         }
 
-        // Create user profile
-        const { error: profileError } = await supabase.from("users").insert({
-          id: authData.user.id,
-          email: formData.email,
-          name: formData.userType === "company" ? formData.contactName : formData.name,
-          phone: formData.userType === "company" ? formData.companyPhone : formData.phone,
-          address: formData.userType === "company" ? formData.companyAddress : formData.address,
-          description: formData.userType === "company" ? formData.companyDescription : formData.description,
-          role: formData.userType === "company" ? "admin" : formData.userType,
-          company_account_id: companyAccountId,
-          is_company_owner: formData.userType === "company",
-        })
+        // Create company account
+        const { data: companyData, error: companyError } = await supabase
+          .from("company_accounts")
+          .insert({
+            company_name: companyName,
+            contact_name: contactName,
+            email: companyEmail,
+            phone: companyPhone,
+            company_size: companySize,
+            address: companyAddress,
+            description: companyDescription,
+            subscription_plan: "basic",
+            is_active: true,
+            owner_id: authData.user.id,
+          })
+          .select()
+          .single();
 
-        if (profileError) throw profileError
-
-        toast.success("Account created successfully! Please check your email to verify your account.")
-        router.push("/login?message=Please check your email to verify your account")
+        if (companyError) throw companyError;
+        companyAccountId = companyData.id;
       }
-    } catch (error: any) {
-      console.error("Signup error:", error)
-      toast.error(error.message || "Failed to create account")
-    } finally {
-      setLoading(false)
+
+      // Create user profile
+      const { error: profileError } = await supabase.from("users").insert({
+        id: authData.user.id,
+        email: formData.email,
+        name: formData.userType === "company" ? formData.contactName : formData.name,
+        phone: formData.userType === "company" ? formData.companyPhone : formData.phone,
+        address: formData.userType === "company" ? formData.companyAddress : formData.address,
+        description: formData.userType === "company" ? formData.companyDescription : formData.description,
+        role: formData.userType === "company" ? "admin" : formData.userType,
+        company_account_id: companyAccountId,
+        is_company_owner: formData.userType === "company",
+        access: formData.userType === "landlord" ? [{ properties: ["read", "write"] }] : null,
+      });
+
+      if (profileError) throw profileError;
+
+      toast.success("Account created successfully! Please check your email to verify your account.");
+      router.push("/login?message=Please check your email to verify your account");
     }
+  } catch (error) {
+    console.error("Signup error:", error);
+    toast.error(error.message || "Failed to create account");
+  } finally {
+    setLoading(false);
   }
+};
 
   const getUserTypeIcon = (type: UserType) => {
     switch (type) {

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { useRouter } from "next/navigation";
 import {
   Search,
   Download,
@@ -53,6 +54,8 @@ export default function TransactionsPage() {
   const [typeFilter, setTypeFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
   const [dateRange, setDateRange] = useState("30d")
+  const hasActiveSubscription = false
+  const router = useRouter();
 
   useEffect(() => {
     if (user?.id) {
@@ -69,6 +72,8 @@ export default function TransactionsPage() {
 
     try {
       setLoading(true)
+
+      
 
       // Calculate date range
       const endDate = new Date()
@@ -405,214 +410,242 @@ export default function TransactionsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile Header */}
-      <div className="sticky top-0 z-40 bg-white border-b border-gray-200 px-4 py-3 md:hidden">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <SidebarTrigger className="h-8 w-8 text-gray-600 hover:bg-gray-100 rounded-md">
-              <Menu className="h-5 w-5" />
-            </SidebarTrigger>
-            <h1 className="text-lg font-semibold text-gray-900">Transactions</h1>
-          </div>
-          <Button size="sm" className="bg-green-600 hover:bg-green-700">
-            <Plus className="h-4 w-4 mr-1" />
-            Add
-          </Button>
+    <>
+      {!hasActiveSubscription ? (
+        <div className="min-h-screen bg-gray-50">
+        <div className="sticky top-0 z-40 bg-white border-b border-gray-200 px-4 py-3 md:hidden">
+          {/* ... mobile header code ... */}
+        </div>
+        <div className="container mx-auto py-8 px-4 max-w-7xl">
+          <Card>
+            <CardHeader>
+              <CardTitle>Access Denied</CardTitle>
+              <CardDescription>Subscription Required</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600 mb-4">
+                Your current subscription plan does not include access to financial transactions.
+              </p>
+              <Button className="bg-green-600 hover:bg-green-700"
+              onClick={() => router.push('/packages')}
+              >
+                <Plus className="h-4 w-4 mr-2" /> Upgrade Your Plan
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
-
-      <div className="container mx-auto py-6 px-4 max-w-7xl">
-        {/* Desktop Header */}
-        <div className="hidden md:flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Transactions</h1>
-            <p className="text-gray-600 mt-2">Track all your financial transactions</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <Select value={dateRange} onValueChange={setDateRange}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7d">Last 7 days</SelectItem>
-                <SelectItem value="30d">Last 30 days</SelectItem>
-                <SelectItem value="90d">Last 90 days</SelectItem>
-                <SelectItem value="1y">Last year</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              Export
-            </Button>
-            <Button className="bg-green-600 hover:bg-green-700">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Transaction
-            </Button>
-          </div>
-        </div>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <Card className="bg-white shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Income</CardTitle>
-              <ArrowUpRight className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">KSh {getTotalIncome().toLocaleString()}</div>
-              <p className="text-xs text-gray-500 mt-1">
-                {filteredTransactions.filter((t) => t.type === "income").length} transactions
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Expenses</CardTitle>
-              <ArrowDownLeft className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">KSh {getTotalExpenses().toLocaleString()}</div>
-              <p className="text-xs text-gray-500 mt-1">
-                {filteredTransactions.filter((t) => t.type === "expense").length} transactions
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Net Income</CardTitle>
-              <DollarSign className="h-4 w-4 text-gray-400" />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${getNetIncome() >= 0 ? "text-green-600" : "text-red-600"}`}>
-                KSh {getNetIncome().toLocaleString()}
-              </div>
-              <p className="text-xs text-gray-500 mt-1">{filteredTransactions.length} total transactions</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Filters */}
-        <Card className="bg-white shadow-sm mb-6">
-          <CardContent className="pt-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input
-                    placeholder="Search transactions..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-full sm:w-40">
-                  <SelectValue placeholder="Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="income">Income</SelectItem>
-                  <SelectItem value="expense">Expense</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-40">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
-                </SelectContent>
-              </Select>
+      ) : (
+      <div className="min-h-screen bg-gray-50">
+        {/* Mobile Header */}
+        <div className="sticky top-0 z-40 bg-white border-b border-gray-200 px-4 py-3 md:hidden">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <SidebarTrigger className="h-8 w-8 text-gray-600 hover:bg-gray-100 rounded-md">
+                <Menu className="h-5 w-5" />
+              </SidebarTrigger>
+              <h1 className="text-lg font-semibold text-gray-900">Transactions</h1>
             </div>
-          </CardContent>
-        </Card>
+            <Button size="sm" className="bg-green-600 hover:bg-green-700">
+              <Plus className="h-4 w-4 mr-1" />
+              Add
+            </Button>
+          </div>
+        </div>
 
-        {/* Transactions List */}
-        <Card className="bg-white shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-gray-900">Recent Transactions</CardTitle>
-            <CardDescription className="text-gray-600">
-              {filteredTransactions.length} transactions found
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {filteredTransactions.length > 0 ? (
-              <div className="space-y-4">
-                {filteredTransactions.map((transaction) => (
-                  <div
-                    key={transaction.id}
-                    className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          transaction.type === "income" ? "bg-green-100" : "bg-red-100"
-                        }`}
-                      >
-                        {transaction.type === "income" ? (
-                          <ArrowUpRight className="h-5 w-5 text-green-600" />
-                        ) : (
-                          <ArrowDownLeft className="h-5 w-5 text-red-600" />
-                        )}
-                      </div>
-                      <div>
-                        <h3 className="font-medium text-gray-900">{transaction.description}</h3>
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                          <span>{transaction.category}</span>
-                          {transaction.tenant_name && (
-                            <>
-                              <span>•</span>
-                              <User className="h-3 w-3" />
-                              <span>{transaction.tenant_name}</span>
-                            </>
-                          )}
-                          {transaction.property_name && (
-                            <>
-                              <span>•</span>
-                              <Building className="h-3 w-3" />
-                              <span>{transaction.property_name}</span>
-                            </>
+        <div className="container mx-auto py-6 px-4 max-w-7xl">
+          {/* Desktop Header */}
+          <div className="hidden md:flex justify-between items-center mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Transactions</h1>
+              <p className="text-gray-600 mt-2">Track all your financial transactions</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <Select value={dateRange} onValueChange={setDateRange}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7d">Last 7 days</SelectItem>
+                  <SelectItem value="30d">Last 30 days</SelectItem>
+                  <SelectItem value="90d">Last 90 days</SelectItem>
+                  <SelectItem value="1y">Last year</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+              <Button className="bg-green-600 hover:bg-green-700">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Transaction
+              </Button>
+            </div>
+          </div>
+
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            <Card className="bg-white shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">Total Income</CardTitle>
+                <ArrowUpRight className="h-4 w-4 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">KSh {getTotalIncome().toLocaleString()}</div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {filteredTransactions.filter((t) => t.type === "income").length} transactions
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">Total Expenses</CardTitle>
+                <ArrowDownLeft className="h-4 w-4 text-red-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">KSh {getTotalExpenses().toLocaleString()}</div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {filteredTransactions.filter((t) => t.type === "expense").length} transactions
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">Net Income</CardTitle>
+                <DollarSign className="h-4 w-4 text-gray-400" />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${getNetIncome() >= 0 ? "text-green-600" : "text-red-600"}`}>
+                  KSh {getNetIncome().toLocaleString()}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">{filteredTransactions.length} total transactions</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Filters */}
+          <Card className="bg-white shadow-sm mb-6">
+            <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      placeholder="Search transactions..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="w-full sm:w-40">
+                    <SelectValue placeholder="Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="income">Income</SelectItem>
+                    <SelectItem value="expense">Expense</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full sm:w-40">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="failed">Failed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Transactions List */}
+          <Card className="bg-white shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-gray-900">Recent Transactions</CardTitle>
+              <CardDescription className="text-gray-600">
+                {filteredTransactions.length} transactions found
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {filteredTransactions.length > 0 ? (
+                <div className="space-y-4">
+                  {filteredTransactions.map((transaction) => (
+                    <div
+                      key={transaction.id}
+                      className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            transaction.type === "income" ? "bg-green-100" : "bg-red-100"
+                          }`}
+                        >
+                          {transaction.type === "income" ? (
+                            <ArrowUpRight className="h-5 w-5 text-green-600" />
+                          ) : (
+                            <ArrowDownLeft className="h-5 w-5 text-red-600" />
                           )}
                         </div>
+                        <div>
+                          <h3 className="font-medium text-gray-900">{transaction.description}</h3>
+                          <div className="flex items-center gap-2 text-sm text-gray-500">
+                            <span>{transaction.category}</span>
+                            {transaction.tenant_name && (
+                              <>
+                                <span>•</span>
+                                <User className="h-3 w-3" />
+                                <span>{transaction.tenant_name}</span>
+                              </>
+                            )}
+                            {transaction.property_name && (
+                              <>
+                                <span>•</span>
+                                <Building className="h-3 w-3" />
+                                <span>{transaction.property_name}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div
+                          className={`text-lg font-semibold ${
+                            transaction.type === "income" ? "text-green-600" : "text-red-600"
+                          }`}
+                        >
+                          {transaction.type === "income" ? "+" : "-"}KSh {transaction.amount.toLocaleString()}
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-500">
+                          <Calendar className="h-3 w-3" />
+                          <span>{new Date(transaction.date).toLocaleDateString()}</span>
+                          {getStatusBadge(transaction.status)}
+                        </div>
+                        {transaction.reference && (
+                          <p className="text-xs text-gray-400 mt-1">Ref: {transaction.reference}</p>
+                        )}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div
-                        className={`text-lg font-semibold ${
-                          transaction.type === "income" ? "text-green-600" : "text-red-600"
-                        }`}
-                      >
-                        {transaction.type === "income" ? "+" : "-"}KSh {transaction.amount.toLocaleString()}
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <Calendar className="h-3 w-3" />
-                        <span>{new Date(transaction.date).toLocaleDateString()}</span>
-                        {getStatusBadge(transaction.status)}
-                      </div>
-                      {transaction.reference && (
-                        <p className="text-xs text-gray-400 mt-1">Ref: {transaction.reference}</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <DollarSign className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No transactions found</p>
-                <p className="text-sm text-gray-400 mt-1">Try adjusting your filters or add a new transaction</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <DollarSign className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">No transactions found</p>
+                  <p className="text-sm text-gray-400 mt-1">Try adjusting your filters or add a new transaction</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </div>
+      )}
+    </>
   )
 }
