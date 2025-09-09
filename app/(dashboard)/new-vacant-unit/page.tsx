@@ -369,11 +369,23 @@ export default function NewVacantUnitPage() {
 
     try {
       // Prepare sanitized data with proper null handling
+      const { data: profileData, error: profileError } = await supabase
+            .from('users') // Assumes your users table holds the company_account_id
+            .select('company_account_id')
+            .eq('id', user.id)
+            .single();
+
+      if (profileError) {
+          console.error("Error fetching user profile for submission:", profileError);
+          setErrors({ general: "Failed to verify user profile. Please try again." });
+          setLoading(false);
+          return;
+        }
+
       const sanitizedData = {
         user_id: user.id,
         created_by: user.id,
-        company_account_id:
-          user.company_account_id && isValidUUID(user.company_account_id) ? user.company_account_id : null,
+        company_account_id:profileData?.company_account_id || null, 
         title: formData.title.trim(),
         description: formData.description.trim(),
         property_type: formData.property_type,
