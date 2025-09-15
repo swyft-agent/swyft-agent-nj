@@ -2,41 +2,48 @@ import { type NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase"
 
 // CORS configuration for Swyft Housing
-const ALLOWED_ORIGIN = "https://swyft-housing.vercel.app"
-const ALLOWED_METHODS = ["GET", "POST", "PUT", "OPTIONS"]
+const ALLOWED_ORIGINS = [
+  "https://move.swyft.africa",
+  "http://localhost:5173",
+]
+const ALLOWED_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
 const ALLOWED_HEADERS = ["Content-Type", "Authorization"]
 
 // Helper function to set CORS headers
-function setCorsHeaders(response: NextResponse) {
-  response.headers.set("Access-Control-Allow-Origin", ALLOWED_ORIGIN)
+function setCorsHeaders(response: NextResponse, origin?: string) {
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    response.headers.set("Access-Control-Allow-Origin", origin)
+  }
   response.headers.set("Access-Control-Allow-Methods", ALLOWED_METHODS.join(", "))
   response.headers.set("Access-Control-Allow-Headers", ALLOWED_HEADERS.join(", "))
   return response
 }
 
-// Helper function to validate origin (optional extra security)
-function validateOrigin(request: NextRequest): boolean {
+// Helper function to validate origin
+function validateOrigin(request: NextRequest): string | null {
   const origin = request.headers.get("origin")
-  // Allow direct API calls (no origin header) and the allowed origin
-  return !origin || origin === ALLOWED_ORIGIN
+  if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+    return origin
+  }
+  return null
 }
 
 // Handle OPTIONS preflight requests
 export async function OPTIONS(request: NextRequest) {
+  const origin = validateOrigin(request)
   const response = new NextResponse(null, { status: 200 })
-  return setCorsHeaders(response)
+  return setCorsHeaders(response, origin || undefined)
 }
 
 // GET - Fetch all available vacant units (public endpoint)
 export async function GET(request: NextRequest) {
   try {
-    // Validate origin for extra security
-    if (!validateOrigin(request)) {
+    const origin = validateOrigin(request)
+    if (!origin) {
       const response = NextResponse.json({ error: "Forbidden: Invalid origin" }, { status: 403 })
       return setCorsHeaders(response)
     }
 
-    // Fetch all available vacant units with all fields
     const { data: vacantUnits, error } = await supabase
       .from("vacant_units")
       .select(`
@@ -88,7 +95,7 @@ export async function GET(request: NextRequest) {
         { error: "Failed to fetch vacant units", details: error.message },
         { status: 500 },
       )
-      return setCorsHeaders(response)
+      return setCorsHeaders(response, origin)
     }
 
     const response = NextResponse.json({
@@ -96,7 +103,7 @@ export async function GET(request: NextRequest) {
       data: vacantUnits || [],
       count: vacantUnits?.length || 0,
     })
-    return setCorsHeaders(response)
+    return setCorsHeaders(response, origin)
   } catch (error) {
     console.error("Unexpected error in GET /api/vacant-units:", error)
     const response = NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -107,8 +114,8 @@ export async function GET(request: NextRequest) {
 // POST - Create a new vacant unit (public endpoint)
 export async function POST(request: NextRequest) {
   try {
-    // Validate origin for extra security
-    if (!validateOrigin(request)) {
+    const origin = validateOrigin(request)
+    if (!origin) {
       const response = NextResponse.json({ error: "Forbidden: Invalid origin" }, { status: 403 })
       return setCorsHeaders(response)
     }
@@ -124,7 +131,7 @@ export async function POST(request: NextRequest) {
         { error: `Missing required fields: ${missingFields.join(", ")}` },
         { status: 400 },
       )
-      return setCorsHeaders(response)
+      return setCorsHeaders(response, origin)
     }
 
     // Set default values for optional fields
@@ -174,7 +181,7 @@ export async function POST(request: NextRequest) {
         { error: "Failed to create vacant unit", details: error.message },
         { status: 500 },
       )
-      return setCorsHeaders(response)
+      return setCorsHeaders(response, origin)
     }
 
     const response = NextResponse.json(
@@ -185,7 +192,7 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 },
     )
-    return setCorsHeaders(response)
+    return setCorsHeaders(response, origin)
   } catch (error) {
     console.error("Unexpected error in POST /api/vacant-units:", error)
     const response = NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -196,8 +203,8 @@ export async function POST(request: NextRequest) {
 // PUT - Update an existing vacant unit (public endpoint)
 export async function PUT(request: NextRequest) {
   try {
-    // Validate origin for extra security
-    if (!validateOrigin(request)) {
+    const origin = validateOrigin(request)
+    if (!origin) {
       const response = NextResponse.json({ error: "Forbidden: Invalid origin" }, { status: 403 })
       return setCorsHeaders(response)
     }
@@ -207,14 +214,14 @@ export async function PUT(request: NextRequest) {
 
     if (!id) {
       const response = NextResponse.json({ error: "Unit ID is required" }, { status: 400 })
-      return setCorsHeaders(response)
+      return setCorsHeaders(response, origin)
     }
 
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
     if (!uuidRegex.test(id)) {
       const response = NextResponse.json({ error: "Invalid unit ID format" }, { status: 400 })
-      return setCorsHeaders(response)
+      return setCorsHeaders(response, origin)
     }
 
     const body = await request.json()
@@ -238,12 +245,12 @@ export async function PUT(request: NextRequest) {
         { error: "Failed to update vacant unit", details: error.message },
         { status: 500 },
       )
-      return setCorsHeaders(response)
+      return setCorsHeaders(response, origin)
     }
 
     if (!updatedUnit) {
       const response = NextResponse.json({ error: "Unit not found" }, { status: 404 })
-      return setCorsHeaders(response)
+      return setCorsHeaders(response, origin)
     }
 
     const response = NextResponse.json({
@@ -251,7 +258,7 @@ export async function PUT(request: NextRequest) {
       data: updatedUnit,
       message: "Vacant unit updated successfully",
     })
-    return setCorsHeaders(response)
+    return setCorsHeaders(response, origin)
   } catch (error) {
     console.error("Unexpected error in PUT /api/vacant-units:", error)
     const response = NextResponse.json({ error: "Internal server error" }, { status: 500 })
