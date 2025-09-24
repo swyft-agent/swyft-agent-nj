@@ -243,6 +243,7 @@ export default function NewVacantUnitPage() {
               updated[uploadIndex].progress += 10
             }
             return updated
+            
           })
         }, 200)
 
