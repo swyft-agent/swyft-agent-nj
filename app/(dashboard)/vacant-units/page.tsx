@@ -10,6 +10,7 @@ import { Plus, Search, MapPin, Bed, Bath, Square, Eye, Trash2 } from "lucide-rea
 import Link from "next/link"
 import { useAuth } from "@/components/auth-provider"
 import { fetchVacantUnits } from "@/lib/supabase-data"
+import { useToast } from "@/components/ui/use-toast"
 
 interface VacantUnit {
   id: string
@@ -35,6 +36,8 @@ interface VacantUnit {
 
 export default function VacantUnitsPage() {
   const { user } = useAuth()
+  const { toast } = useToast()
+
   const [units, setUnits] = useState<VacantUnit[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -82,14 +85,36 @@ export default function VacantUnitsPage() {
         setUnits(units.filter((unit) => unit.id !== unitToDelete.id))
         setShowDeleteModal(false)
         setUnitToDelete(null)
+        toast({
+          title: "Unit deleted",
+          description: `"${unitToDelete.title}" has been removed.`,
+          variant: "success",
+        })
+      } else if (response.status === 404) {
+        setUnits(units.filter((unit) => unit.id !== unitToDelete.id))
+        setShowDeleteModal(false)
+        setUnitToDelete(null)
+        toast({
+          title: "Already removed",
+          description: `"${unitToDelete.title}" was already deleted.`,
+          variant: "default",
+        })
       } else {
         const errorData = await response.text()
         console.error("Delete failed:", response.status, errorData)
-        alert(`Failed to delete unit: ${response.status} - ${errorData}`)
+        toast({
+          title: "Delete failed",
+          description: `Error ${response.status}: ${errorData}`,
+          variant: "destructive",
+        })
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting unit:", error)
-      alert(`Network error: ${error.message}`)
+      toast({
+        title: "Network error",
+        description: error.message,
+        variant: "destructive",
+      })
     }
   }
 
@@ -130,7 +155,7 @@ export default function VacantUnitsPage() {
             </Link>
           </Button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(6)].map((_, i) => (
             <Card key={i} className="animate-pulse">
               <div className="h-48 bg-gray-200 rounded-t-lg"></div>
@@ -150,7 +175,7 @@ export default function VacantUnitsPage() {
   }
 
   return (
-    <div className="w-full space-y-4 p-4 md:p-6">
+    <div className="w-full p-4 md:p-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Vacant Units</h1>
@@ -231,7 +256,7 @@ export default function VacantUnitsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredUnits.map((unit) => (
             <Card key={unit.id} className="overflow-hidden hover:shadow-lg transition-shadow">
               <div className="relative">
@@ -241,13 +266,12 @@ export default function VacantUnitsPage() {
                   className="w-full h-48 object-cover"
                 />
                 <Badge
-                  className={`absolute top-2 right-2 ${
-                    unit.status === "available"
+                  className={`absolute top-2 right-2 ${unit.status === "available"
                       ? "bg-green-500"
                       : unit.status === "pending"
                         ? "bg-yellow-500"
                         : "bg-red-500"
-                  }`}
+                    }`}
                 >
                   {unit.status}
                 </Badge>
@@ -304,31 +328,9 @@ export default function VacantUnitsPage() {
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
+                      
                     </div>
                   </div>
-
-                  {unit.amenities && unit.amenities.length > 0 && (
-                    <div className="pt-2">
-                      <div className="flex flex-wrap gap-1">
-                        {unit.amenities.slice(0, 3).map((amenity) => (
-                          <Badge key={amenity} variant="secondary" className="text-xs">
-                            {amenity.replace(/_/g, " ")}
-                          </Badge>
-                        ))}
-                        {unit.amenities.length > 3 && (
-                          <Badge variant="secondary" className="text-xs">
-                            +{unit.amenities.length - 3} more
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {unit.available_from && (
-                    <p className="text-xs text-gray-500">
-                      Available from: {new Date(unit.available_from).toLocaleDateString()}
-                    </p>
-                  )}
                 </div>
               </CardContent>
             </Card>
@@ -386,13 +388,12 @@ export default function VacantUnitsPage() {
                       <p>
                         <strong>Status:</strong>
                         <Badge
-                          className={`ml-2 ${
-                            selectedUnit.status === "available"
+                          className={`ml-2 ${selectedUnit.status === "available"
                               ? "bg-green-500"
                               : selectedUnit.status === "pending"
                                 ? "bg-yellow-500"
                                 : "bg-red-500"
-                          }`}
+                            }`}
                         >
                           {selectedUnit.status}
                         </Badge>
@@ -462,12 +463,16 @@ export default function VacantUnitsPage() {
                       <p className="text-gray-700">{selectedUnit.description}</p>
                     </div>
                   )}
+
+                 
                 </div>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && unitToDelete && (
@@ -481,6 +486,19 @@ export default function VacantUnitsPage() {
               <p className="text-sm text-gray-500 mb-6">
                 Are you sure you want to delete "{unitToDelete.title}"? This action cannot be undone.
               </p>
+
+              {/* Offer Moving Services button ABOVE Cancel/Delete */}
+              <div className="mb-4">
+                <Button
+                  variant="secondary"
+                  asChild
+                  className="bg-blue-600 text-white hover:bg-blue-700 w-full"
+                >
+                  <Link href="/request-move">Offer Moving Services</Link>
+                </Button>
+              </div>
+
+              {/* Cancel / Delete buttons */}
               <div className="flex gap-3 justify-center">
                 <Button
                   variant="outline"
@@ -491,7 +509,11 @@ export default function VacantUnitsPage() {
                 >
                   Cancel
                 </Button>
-                <Button variant="destructive" onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700">
+                <Button
+                  variant="destructive"
+                  onClick={handleConfirmDelete}
+                  className="bg-red-600 hover:bg-red-700"
+                >
                   Delete Unit
                 </Button>
               </div>
@@ -499,6 +521,8 @@ export default function VacantUnitsPage() {
           </div>
         </div>
       )}
+
+
     </div>
   )
 }

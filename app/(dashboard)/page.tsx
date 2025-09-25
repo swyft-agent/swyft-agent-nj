@@ -91,22 +91,22 @@ export default function DashboardPage() {
         // Vacant units
         supabase
           .from("vacant_units")
-          .select("unit_id")
+          .select("id")
           .eq("company_account_id", companyId),
         // Tenants
         supabase
           .from("tenants")
-          .select("tenant_id, rent_amount")
+          .select("id, monthly_rent")
           .eq("company_account_id", companyId),
         // Notices
         supabase
           .from("notices")
-          .select("notice_id")
+          .select("id")
           .eq("company_account_id", companyId),
         // Recent inquiries
         supabase
           .from("inquiries")
-          .select("inquiry_id")
+          .select("id")
           .eq("company_account_id", companyId)
           .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
       ])
