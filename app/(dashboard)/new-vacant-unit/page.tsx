@@ -575,6 +575,7 @@ export default function NewVacantUnitPage() {
     if (!validateQuickPost()) return
     setLoading(true)
     try {
+
       const selectedBuilding = buildings.find((b) => b.building_id === formData.building_id)
       const sanitizedData = {
         user_id: user?.id || null,
