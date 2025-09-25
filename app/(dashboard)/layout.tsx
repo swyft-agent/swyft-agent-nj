@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { useAuth } from "@/components/auth-provider"
 import { useRouter } from "next/navigation"
@@ -52,7 +52,14 @@ export default function DashboardLayout({
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
         <AppSidebar />
+
         <SidebarInset className="flex-1 flex flex-col min-w-0">
+          {/* Global Header with SidebarTrigger */}
+      
+            <SidebarTrigger />
+           
+         
+
           <main className="flex-1 overflow-auto bg-white">{children}</main>
         </SidebarInset>
       </div>
