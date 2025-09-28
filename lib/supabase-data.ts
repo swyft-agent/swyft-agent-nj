@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase"
 
+// Defines the expected structure for dashboard statistics
 export interface DashboardStats {
   totalBuildings: number
   totalUnits: number
@@ -16,6 +17,21 @@ export interface DashboardStats {
   revenueChange: number
   inquiriesChange: number
   recentTransactions: any[]
+}
+
+// Defines the expected structure for a Building on the client-side
+export interface ClientBuilding {
+  id: string
+  name: string
+  address: string
+  city: string
+  state: string // Mapped from 'county'
+  building_type: string
+  total_units: number
+  description: string
+  contact_info: string // Mapped from 'contact_person'
+  status: string
+  created_at: string
 }
 
 // Helper function to validate UUID
@@ -72,6 +88,7 @@ export async function getUserCompanyId(): Promise<{
     }
   } catch (error) {
     console.error("Error getting user company ID:", error)
+    // Re-fetch user to ensure latest state in case of an error during auth.getUser() which might be rare but safer.
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -100,7 +117,8 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
     console.log("Fetching dashboard stats for:", { companyId, userId, isCompanyUser })
 
     // Build queries based on whether user is part of a company or individual
-    const buildingQuery = supabase.from("buildings").select("*")
+    // Note: It's more efficient to use the .count() method, but current implementation selects all data
+    const buildingQuery = supabase.from("buildings").select("building_id")
     const unitsQuery = supabase.from("vacant_units").select("*")
     const tenantsQuery = supabase.from("tenants").select("*")
     const inquiriesQuery = supabase.from("inquiries").select("*")
@@ -152,7 +170,6 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
     const safeTotalRevenue = isNaN(totalRevenue) ? 0 : totalRevenue
 
     // Fetch actual recent transactions from wallet_transactions table
-    // wallet_transactions has wallet_id and company_account_id, but NO user_id
     let recentTransactions = []
     try {
       if (isCompanyUser && companyId && isValidUUID(companyId)) {
@@ -216,8 +233,8 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
       monthlyRevenue: safeTotalRevenue,
       totalRevenue: safeTotalRevenue,
       occupancyRate: safeOccupancyRate,
-      revenueChange: 0,
-      inquiriesChange: 0,
+      revenueChange: 0, // Placeholder
+      inquiriesChange: 0, // Placeholder
       recentTransactions: recentTransactions,
     }
   } catch (error) {
@@ -273,14 +290,31 @@ export async function fetchVacantUnits() {
   }
 }
 
+// Transform database building record to client interface
+const transformBuilding = (building: any): ClientBuilding => ({
+  id: building.building_id, // Map building_id to id
+  name: building.name,
+  address: building.address,
+  city: building.city,
+  state: building.county || '', // Map county to state
+  building_type: building.building_type,
+  total_units: building.total_units || 0,
+  description: building.description || '',
+  contact_info: building.contact_person || '', // Map contact_person to contact_info
+  status: building.status || 'active',
+  created_at: building.created_at
+});
+
 // Fetch buildings with proper error handling
-export async function fetchBuildings() {
+export async function fetchBuildings(): Promise<ClientBuilding[]> {
   try {
     const { companyId, userId, isCompanyUser } = await getUserCompanyId()
     if (!userId || !isValidUUID(userId)) {
       console.error("No valid user ID found for fetching buildings")
       return []
     }
+
+    console.log("Fetching buildings for:", { companyId, userId, isCompanyUser });
 
     const query = supabase.from("buildings").select("*").order("created_at", { ascending: false })
 
@@ -296,14 +330,205 @@ export async function fetchBuildings() {
       console.error("Buildings fetch error:", error)
       return []
     }
-    return Array.isArray(data) ? data : []
+
+    console.log("Fetched buildings:", data);
+
+    // Transform data to match the expected interface
+    const transformedData = Array.isArray(data) ? data.map(transformBuilding) : []
+
+    return transformedData
   } catch (error) {
     console.error("Buildings fetch error:", error)
     return []
   }
 }
 
+// Create a new building
+export async function createBuilding(newBuildingData: Omit<ClientBuilding, 'id' | 'created_at'>): Promise<ClientBuilding> {
+  try {
+    const { companyId, userId, isCompanyUser } = await getUserCompanyId()
+    if (!userId || !isValidUUID(userId)) {
+      console.error("No valid user ID found for creating building")
+      throw new Error("No valid user ID found")
+    }
+
+    // Prepare insert data, mapping client fields to database schema
+    const insertData = {
+      user_id: userId,
+      company_account_id: isCompanyUser ? companyId : null,
+      name: newBuildingData.name,
+      address: newBuildingData.address,
+      city: newBuildingData.city,
+      county: newBuildingData.state, // Map state to county
+      building_type: newBuildingData.building_type,
+      total_units: newBuildingData.total_units,
+      description: newBuildingData.description,
+      contact_person: newBuildingData.contact_info, // Map contact_info to contact_person
+      status: newBuildingData.status || 'active',
+    };
+
+    console.log("Attempting to create building with data:", insertData);
+
+    const { data, error } = await supabase
+      .from("buildings")
+      .insert([insertData])
+      .select()
+      .single()
+
+    if (error) {
+      console.error("Error creating building:", error)
+      throw error
+    }
+
+    console.log("Building created successfully:", data);
+
+    // Transform the returned data to match expected interface
+    return transformBuilding(data);
+
+  } catch (error) {
+    console.error("Create building error:", error)
+    throw error
+  }
+}
+
+// Update building with proper error handling and security
+export async function updateBuilding(buildingId: string, updates: Partial<Omit<ClientBuilding, 'id' | 'created_at'>>): Promise<ClientBuilding> {
+  try {
+    // 🛑 CRITICAL FIX: Add immediate validation for the buildingId argument
+    if (!buildingId || !isValidUUID(buildingId)) {
+        console.error(`Invalid or missing building ID provided for update: "${buildingId}"`);
+        throw new Error("Invalid or missing Building ID provided.");
+    }
+
+    console.log("Starting updateBuilding with ID:", buildingId);
+    console.log("Updates to apply:", updates);
+
+    const { companyId, userId, isCompanyUser } = await getUserCompanyId()
+    if (!userId || !isValidUUID(userId)) {
+      console.error("No valid user ID found for updating building")
+      throw new Error("No valid user ID found")
+    }
+
+    console.log("User context:", { companyId, userId, isCompanyUser });
+
+    // First verify the user has permission to update this building
+    const { data: existingBuilding, error: fetchError } = await supabase
+      .from("buildings")
+      .select("company_account_id, user_id") // Only select necessary fields for verification
+      .eq("building_id", buildingId)
+      .single()
+
+    if (fetchError || !existingBuilding) {
+      console.error("Error fetching building for verification:", fetchError || "Building not found")
+      throw new Error("Building not found or error fetching data")
+    }
+
+    // Verify ownership/access
+    if (isCompanyUser && companyId && isValidUUID(companyId)) {
+      if (existingBuilding.company_account_id !== companyId) {
+        throw new Error("Unauthorized to update this building - company mismatch")
+      }
+    } else {
+      if (existingBuilding.user_id !== userId) {
+        throw new Error("Unauthorized to update this building - user mismatch")
+      }
+    }
+
+    // Prepare update data according to actual schema, only including provided fields
+    const updateData: any = {};
+    if (updates.name !== undefined) updateData.name = updates.name;
+    if (updates.address !== undefined) updateData.address = updates.address;
+    if (updates.city !== undefined) updateData.city = updates.city;
+    if (updates.state !== undefined) updateData.county = updates.state; // Map state to county
+    if (updates.building_type !== undefined) updateData.building_type = updates.building_type;
+    if (updates.total_units !== undefined) updateData.total_units = updates.total_units;
+    if (updates.description !== undefined) updateData.description = updates.description;
+    if (updates.status !== undefined) updateData.status = updates.status;
+    if (updates.contact_info !== undefined) updateData.contact_person = updates.contact_info; // Map contact_info to contact_person
+
+    updateData.updated_at = new Date().toISOString();
+
+    console.log("Final update data:", updateData);
+
+    const { data, error } = await supabase
+      .from("buildings")
+      .update(updateData)
+      .eq("building_id", buildingId)
+      .select()
+      .single()
+
+    if (error) {
+      console.error("Error updating building:", error)
+      throw error
+    }
+
+    console.log("Update successful, returned data:", data);
+
+    // Transform the returned data to match expected interface
+    return transformBuilding(data);
+  } catch (error) {
+    console.error("Update building error:", error)
+    throw error
+  }
+}
+
+// Delete building with proper error handling and security
+export async function deleteBuilding(buildingId: string): Promise<boolean> {
+  try {
+    // 🛑 ENHANCEMENT: Add immediate validation for the buildingId argument
+    if (!buildingId || !isValidUUID(buildingId)) {
+        console.error(`Invalid or missing building ID provided for delete: "${buildingId}"`);
+        throw new Error("Invalid or missing Building ID provided.");
+    }
+
+    const { companyId, userId, isCompanyUser } = await getUserCompanyId()
+    if (!userId || !isValidUUID(userId)) {
+      console.error("No valid user ID found for deleting building")
+      throw new Error("No valid user ID found")
+    }
+
+    // First verify the user has permission to delete this building
+    const { data: existingBuilding, error: fetchError } = await supabase
+      .from("buildings")
+      .select("company_account_id, user_id")
+      .eq("building_id", buildingId)
+      .single()
+
+    if (fetchError || !existingBuilding) {
+      console.error("Error fetching building for verification:", fetchError || "Building not found")
+      throw new Error("Building not found or error fetching data")
+    }
+
+    // Verify ownership/access
+    if (isCompanyUser && companyId && isValidUUID(companyId)) {
+      if (existingBuilding.company_account_id !== companyId) {
+        throw new Error("Unauthorized to delete this building")
+      }
+    } else {
+      if (existingBuilding.user_id !== userId) {
+        throw new Error("Unauthorized to delete this building")
+      }
+    }
+
+    const { error } = await supabase
+      .from("buildings")
+      .delete()
+      .eq("building_id", buildingId)
+
+    if (error) {
+      console.error("Error deleting building:", error)
+      throw error
+    }
+
+    return true
+  } catch (error) {
+    console.error("Delete building error:", error)
+    throw error
+  }
+}
+
 // Other fetch functions with similar error handling...
+
 export async function fetchTenants() {
   try {
     const { companyId, userId, isCompanyUser } = await getUserCompanyId()
@@ -424,4 +649,4 @@ export async function fetchAds() {
     console.error("Ads fetch error:", error)
     return []
   }
-}
+} 

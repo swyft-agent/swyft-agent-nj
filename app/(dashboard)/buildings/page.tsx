@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Search, MapPin, BuildingIcon, Users, Eye, Edit, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/components/auth-provider"
-import { fetchBuildings } from "@/lib/supabase-data"
+import { fetchBuildings, updateBuilding, deleteBuilding } from "@/lib/supabase-data"
 
 interface Building {
   id: string
@@ -27,11 +27,13 @@ interface Building {
 
 export default function BuildingsPage() {
   const { user } = useAuth()
-  const [buildings, setBuildings] = useState([])
+  const [buildings, setBuildings] = useState<Building[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
   const [filterType, setFilterType] = useState("all")
+  const [editingBuilding, setEditingBuilding] = useState<Building | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   useEffect(() => {
     if (user?.id) {
@@ -49,6 +51,86 @@ export default function BuildingsPage() {
       setBuildings([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleEdit = async (building: Building) => {
+    // 🛑 CRITICAL FIX: Ensure the building object and its ID are valid
+    if (!building || !building.id) {
+        console.error("Attempted to call handleEdit with no building object or missing ID.")
+        alert("Cannot save changes: Building ID is missing.")
+        return
+    }
+    console.log("Handling edit for building ID:", building.id);
+
+    try {
+      // Create a clean updates object, excluding immutable fields like id and created_at
+      const updates = {
+        name: building.name,
+        address: building.address,
+        city: building.city,
+        state: building.state,
+        building_type: building.building_type,
+        total_units: building.total_units,
+        description: building.description,
+        contact_info: building.contact_info,
+        status: building.status,
+      }
+      
+      const updatedBuilding = await updateBuilding(building.id, updates)
+
+      if (updatedBuilding) {
+        // Update local state with the returned data
+        setBuildings(prev => prev.map(b => b.id === building.id ? updatedBuilding : b))
+        setEditingBuilding(null)
+        console.log("Building updated successfully");
+      }
+    } catch (error) {
+      console.error("Error updating building:", error)
+      alert("Failed to update building. Please try again.")
+    }
+  }
+
+  const handleDelete = async (buildingId: string) => {
+    if (!buildingId) return
+    
+    try {
+      const success = await deleteBuilding(buildingId)
+      if (success) {
+        // Remove from local state
+        setBuildings(prev => prev.filter(b => b.id !== buildingId))
+        setDeleteConfirm(null)
+      }
+    } catch (error) {
+      console.error("Error deleting building:", error)
+      alert("Failed to delete building. Please try again.")
+    }
+  }
+
+  const startEdit = (building: Building) => {
+    console.log("Starting edit for building:", building);
+    // Use a spread operator to create a deep copy for safe editing
+    setEditingBuilding({...building})
+  }
+
+  const cancelEdit = () => {
+    setEditingBuilding(null)
+  }
+
+  const updateEditingField = (field: keyof Building, value: string | number) => {
+    if (editingBuilding) {
+      // 🛡️ SECURITY/STABILITY FIX: Prevent setting or changing the ID
+      if (field === 'id' || field === 'created_at') {
+        console.warn(`Attempted to update immutable field: ${field}`);
+        return;
+      }
+      
+      // Ensure total_units is handled as a number
+      const finalValue = field === 'total_units' 
+        ? (typeof value === 'string' ? parseInt(value) || 0 : value) 
+        : value;
+        
+      setEditingBuilding(prev => prev ? {...prev, [field]: finalValue as any} : null)
     }
   }
 
@@ -216,13 +298,16 @@ export default function BuildingsPage() {
                   <p className="text-xs text-gray-500">Added {new Date(building.created_at).toLocaleDateString()}</p>
 
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm">
-                      <Eye className="h-4 w-4" />
+                    <Button variant="outline" size="sm" asChild>
+                      {/* Link to a dedicated view page for the building */}
+                      <Link href={`/buildings/${building.id}`}>
+                        <Eye className="h-4 w-4" />
+                      </Link>
                     </Button>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => startEdit(building)}>
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => setDeleteConfirm(building.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -230,6 +315,156 @@ export default function BuildingsPage() {
               </CardContent>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* Edit Modal - Only shows when editingBuilding is set */}
+      {editingBuilding && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>Edit Building: {editingBuilding.name}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Building Name</label>
+                <Input
+                  value={editingBuilding.name}
+                  onChange={(e) => updateEditingField('name', e.target.value)}
+                  placeholder="Building Name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Address</label>
+                <Input
+                  value={editingBuilding.address}
+                  onChange={(e) => updateEditingField('address', e.target.value)}
+                  placeholder="Address"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">City</label>
+                  <Input
+                    value={editingBuilding.city}
+                    onChange={(e) => updateEditingField('city', e.target.value)}
+                    placeholder="City"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">State (County)</label>
+                  <Input
+                    value={editingBuilding.state}
+                    onChange={(e) => updateEditingField('state', e.target.value)}
+                    placeholder="State"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Type</label>
+                  <Select 
+                    value={editingBuilding.building_type} 
+                    onValueChange={(value) => updateEditingField('building_type', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="apartment">Apartment</SelectItem>
+                      <SelectItem value="commercial">Commercial</SelectItem>
+                      <SelectItem value="mixed">Mixed Use</SelectItem>
+                      <SelectItem value="residential">Residential</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Status</label>
+                  <Select 
+                    value={editingBuilding.status} 
+                    onValueChange={(value) => updateEditingField('status', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="maintenance">Maintenance</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Total Units</label>
+                <Input
+                  type="number"
+                  // Ensure value is a string representation of the number for the input field
+                  value={String(editingBuilding.total_units)}
+                  onChange={(e) => updateEditingField('total_units', e.target.value)}
+                  placeholder="Total Units"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Description</label>
+                <textarea
+                  value={editingBuilding.description}
+                  onChange={(e) => updateEditingField('description', e.target.value)}
+                  className="w-full p-2 border rounded text-sm"
+                  rows={3}
+                  placeholder="Building description"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Contact Info</label>
+                <Input
+                  value={editingBuilding.contact_info}
+                  onChange={(e) => updateEditingField('contact_info', e.target.value)}
+                  placeholder="Contact Person/Number"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <Button variant="outline" onClick={cancelEdit} className="flex-1">
+                  Cancel
+                </Button>
+                {/* 💡 Call handleEdit only if editingBuilding is not null, ensuring the latest state is passed */}
+                <Button onClick={() => editingBuilding && handleEdit(editingBuilding)} className="flex-1">
+                  Save Changes
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-sm">
+            <CardHeader>
+              <CardTitle className="text-center">Confirm Delete</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-gray-600 text-center">
+                Are you sure you want to delete this building? This action cannot be undone.
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setDeleteConfirm(null)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={() => handleDelete(deleteConfirm)} className="flex-1">
+                  Delete
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>
